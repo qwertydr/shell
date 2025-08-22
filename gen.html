@@ -1,453 +1,203 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Flashcard Frame Generator</title>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Flashcard Generator</title>
 <style>
-  :root{
-    --brand-red:#c8102e;
-    --brand-black:#0b0b0b;
-    --brand-white:#ffffff;
-  }
-  html,body{
-    height:100%;
+  body{
     margin:0;
-    background:var(--brand-black);
+    background:#111;
     display:flex;
     align-items:center;
     justify-content:center;
-    font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-    -webkit-font-smoothing:antialiased;
-    -moz-osx-font-smoothing:grayscale;
+    height:100vh;
+    font-family:Arial, Helvetica, sans-serif;
   }
-
-  .app {
+  .app{
     display:flex;
     flex-direction:column;
-    align-items:center;
-    gap:16px;
-    padding:18px;
+    gap:12px;
+    width:100%;
+    max-width:420px;
+    padding:12px;
     box-sizing:border-box;
-    width:100%;
-    max-width:420px; /* controls preview scale on page */
   }
-
-  /* Clean minimal UI: only preview + two buttons */
-  .preview {
-    width:100%;
-    background:var(--brand-white);
-    border-radius:12px;
+  .preview{
+    background:#fff;
+    border-radius:10px;
+    box-shadow:0 6px 18px rgba(0,0,0,0.4);
     overflow:hidden;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
-    padding:6px;
+    width:100%;
   }
-
-  /* The actual canvas will be square; CSS makes it responsive */
-  canvas {
+  canvas{
     width:100%;
     height:auto;
     display:block;
-    border-radius:6px;
-    background:var(--brand-white);
   }
-
-  .controls {
-    width:100%;
+  .controls{
     display:flex;
     gap:8px;
   }
-
-  button {
+  button{
     flex:1;
-    background:var(--brand-red);
-    color:var(--brand-white);
-    border:0;
-    padding:10px 12px;
-    font-size:15px;
-    border-radius:8px;
-    cursor:pointer;
+    padding:10px;
+    border:none;
+    border-radius:6px;
     font-weight:600;
-    box-shadow: 0 6px 14px rgba(200,16,46,0.18);
+    cursor:pointer;
+    font-size:15px;
   }
-  button.secondary {
-    background:var(--brand-black);
-    color:var(--brand-white);
-    box-shadow:none;
-  }
-
-  @media (min-width:720px){
-    .app { max-width:520px; }
-  }
-
-  /* hide file input visually (if you want to drop your JSON manually later) */
-  input[type=file]{ display:none; }
+  #randomBtn{ background:#c8102e; color:#fff; }
+  #downloadBtn{ background:#000; color:#fff; }
 </style>
 </head>
 <body>
-  <div class="app" role="application" aria-label="Flashcard generator">
-    <div class="preview" title="Preview">
-      <canvas id="cardCanvas" width="1080" height="1080" ></canvas>
-    </div>
-
-    <div class="controls">
-      <button id="randomBtn" title="Generate a random question">Random Question</button>
-      <button id="downloadBtn" class="secondary" title="Download PNG">Download PNG</button>
-    </div>
+<div class="app">
+  <div class="preview"><canvas id="cardCanvas" width="1080" height="1080"></canvas></div>
+  <div class="controls">
+    <button id="randomBtn">Random Question</button>
+    <button id="downloadBtn">Download</button>
   </div>
+</div>
 
 <script>
-/*
-Flashcard Frame Generator
-- Keep only JS, no libraries.
-- Replace the `questions` array with your JSON or load externally as needed.
-- Footer constants: website, facebook, instagram are pre-filled so you don't have to enter them each time.
-*/
-
-// ---------------- CONFIG (you don't need to edit UI to change these; change here if you want)
+// ------------ CONFIG ----------------
 const META = {
-  website: "www.example.com",        // default website (change once here if you want)
-  facebook: "facebook.com/example",  // default facebook handle / URL
-  instagram: "instagram.com/example" // default instagram handle / URL
+  website:"www.example.com",
+  facebook:"facebook.com/example",
+  instagram:"instagram.com/example"
 };
-// ---------------- END CONFIG
-
-// Sample questions array. Replace this entire array with your JSON structure if you have one.
-// Expected shape: [{question: "text", options: ["opt1","opt2","opt3","opt4"], correct: 0}, ...]
-// Options can be any string; labels will be A,B,C,D by default (or 1,2,3,4 if you prefer).
 const questions = [
-  {
-    question: "Which data structure gives O(1) average-time insert, delete, and lookup?",
-    options: ["Array","Linked List","Hash Table","Binary Search Tree"],
-    correct: 2
-  },
-  {
-    question: "What is the time complexity of binary search on a sorted array?",
-    options: ["O(1)","O(log n)","O(n)","O(n log n)"],
-    correct: 1
-  },
-  {
-    question: "Which sorting algorithm guarantees O(n log n) time for worst case?",
-    options: ["Quick Sort","Merge Sort","Bubble Sort","Insertion Sort"],
-    correct: 1
-  },
-  {
-    question: "In JavaScript, which keyword creates a block-scoped variable?",
-    options: ["var","let","function","this"],
-    correct: 1
-  },
-  // Add your JSON entries here or replace the entire array with your file contents.
+  {question:"Which data structure provides O(1) average-time insert, delete, and search?",options:["Array","Linked List","Hash Table","Binary Search Tree"]},
+  {question:"Time complexity of binary search?",options:["O(1)","O(log n)","O(n)","O(n log n)"]},
+  {question:"Which sorting algorithm guarantees O(n log n) in worst case?",options:["Quick Sort","Merge Sort","Bubble Sort","Insertion Sort"]},
+  {question:"In JavaScript, which keyword creates block-scoped variable?",options:["var","let","function","this"]}
 ];
+// ------------------------------------
 
-// Canvas and drawing setup
-const canvas = document.getElementById('cardCanvas');
-const ctx = canvas.getContext('2d');
+const canvas=document.getElementById("cardCanvas");
+const ctx=canvas.getContext("2d");
+let currentQ=null;
 
-// Keep a currentQuestion index to make Download use the currently previewed card
-let currentQuestion = null;
-
-// Draw parameters
-const W = canvas.width;
-const H = canvas.height;
-const padding = 64; // general inner padding on the card
-
-// Branding colors (main)
-const BRAND_RED = getComputedStyle(document.documentElement).getPropertyValue('--brand-red').trim() || '#c8102e';
-const BRAND_BLACK = getComputedStyle(document.documentElement).getPropertyValue('--brand-black').trim() || '#0b0b0b';
-const BRAND_WHITE = getComputedStyle(document.documentElement).getPropertyValue('--brand-white').trim() || '#ffffff';
-
-// Util: format date
-function formatDate(d = new Date()){
-  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+function rand(arr){return arr[Math.floor(Math.random()*arr.length)];}
+function formatDate(d=new Date()){
+  return d.toLocaleDateString("en-US",{year:"numeric",month:"short",day:"numeric"});
 }
 
-// Util: pick random array element
-function rand(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function wrapTextAutoSize(ctx,text,x,y,maxWidth,maxHeight,maxSize,minSize,lineHeight,align){
+  let size=maxSize;
+  let lines=[];
+  while(size>=minSize){
+    ctx.font=`bold ${size}px Arial`;
+    ctx.textAlign=align;
+    lines=wrap(ctx,text,maxWidth);
+    if(lines.length*size*lineHeight<=maxHeight) break;
+    size-=2;
+  }
+  let yy=y;
+  for(let l of lines){
+    ctx.fillText(l,x,yy);
+    yy+=size*lineHeight;
+  }
+}
+function wrap(ctx,text,maxWidth){
+  let words=text.split(" ");
+  let lines=[],line=words[0];
+  for(let i=1;i<words.length;i++){
+    let test=line+" "+words[i];
+    if(ctx.measureText(test).width>maxWidth){
+      lines.push(line);
+      line=words[i];
+    }else line=test;
+  }
+  lines.push(line);
+  return lines;
+}
 
-// Create a random gradient color for "Per Hour Question" label
-function randomGradient(ctx, x, y, w, h){
-  const c1 = `hsl(${Math.floor(Math.random()*360)} ${Math.floor(60+Math.random()*40)}% ${Math.floor(45+Math.random()*10)}%)`;
-  const c2 = `hsl(${Math.floor(Math.random()*360)} ${Math.floor(60+Math.random()*40)}% ${Math.floor(45+Math.random()*10)}%)`;
-  const g = ctx.createLinearGradient(x, y, x+w, y+h);
+function randomGradient(x,y,w,h){
+  const c1=`hsl(${Math.random()*360},70%,55%)`;
+  const c2=`hsl(${Math.random()*360},70%,55%)`;
+  const g=ctx.createLinearGradient(x,y,x+w,y+h);
   g.addColorStop(0,c1);
   g.addColorStop(1,c2);
   return g;
 }
 
-// Text wrapping + autoscale: attempt a font size and reduce until fits
-function drawWrappedText(ctx, text, x, y, maxWidth, maxHeight, baseFont = "bold", baseSize = 36, lineHeightFactor = 1.08, align = "left") {
-  ctx.textAlign = align;
-  let size = baseSize;
-  let lines;
-  while(size > 10){
-    ctx.font = `${baseFont} ${size}px Inter, Arial, sans-serif`;
-    lines = wrapText(ctx, text, maxWidth, size * lineHeightFactor);
-    const height = lines.length * size * lineHeightFactor;
-    if(height <= maxHeight) break;
-    size = Math.floor(size * 0.92);
-  }
-  // draw lines
-  ctx.textBaseline = 'top';
-  let yy = y;
-  lines.forEach(line => {
-    ctx.fillText(line, x, yy);
-    yy += size * lineHeightFactor;
-  });
-  return {fontSize:size, linesCount:lines.length, lines};
+function drawLogo(cx,cy,size){
+  ctx.fillStyle="#c8102e";
+  ctx.beginPath();
+  ctx.arc(cx,cy,size/2,0,Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle="#fff";
+  ctx.font=`bold ${size/2}px Arial`;
+  ctx.textAlign="center";
+  ctx.textBaseline="middle";
+  ctx.fillText("L",cx,cy); // simple letter logo
 }
 
-// wrapText: split into lines that fit maxWidth
-function wrapText(ctx, text, maxWidth, lineHeight) {
-  const words = text.split(' ');
-  let lines = [];
-  let current = words[0] || "";
-  for (let i = 1; i < words.length; i++) {
-    const w = words[i];
-    const test = current + " " + w;
-    const metrics = ctx.measureText(test);
-    if (metrics.width > maxWidth && current.length>0) {
-      lines.push(current);
-      current = w;
-    } else {
-      current = test;
-    }
-  }
-  if (current) lines.push(current);
-  return lines;
-}
+function drawCard(q){
+  ctx.clearRect(0,0,1080,1080);
+  ctx.fillStyle="#fff"; ctx.fillRect(0,0,1080,1080);
 
-// Draw a simple geometric logo centered in header
-function drawLogo(ctx, cx, cy, size){
-  // draw red rounded square with white book-like symbol
-  const r = size/2;
-  ctx.save();
-  ctx.translate(cx,cy);
-  // shadow/outline
-  ctx.beginPath();
-  roundRectPath(ctx, -r, -r, size, size, size*0.14);
-  ctx.fillStyle = BRAND_RED;
-  ctx.fill();
-  // book icon: two vertical curves
-  ctx.fillStyle = BRAND_WHITE;
-  const w = size * 0.46;
-  const h = size * 0.48;
-  // left page
-  ctx.beginPath();
-  ctx.moveTo(-w*0.5, -h*0.5);
-  ctx.quadraticCurveTo(-w*0.9, 0, -w*0.5, h*0.5);
-  ctx.quadraticCurveTo(-w*0.2, 0, -w*0.5, -h*0.5);
-  ctx.fill();
-  // right page
-  ctx.beginPath();
-  ctx.moveTo(w*0.5, -h*0.5);
-  ctx.quadraticCurveTo(w*0.9, 0, w*0.5, h*0.5);
-  ctx.quadraticCurveTo(w*0.2, 0, w*0.5, -h*0.5);
-  ctx.fill();
-  ctx.restore();
-}
+  // Header
+  ctx.fillStyle="#000";
+  ctx.fillRect(0,0,1080,200);
+  drawLogo(540,90,100);
+  ctx.fillStyle=randomGradient(340,150,400,50);
+  ctx.fillRect(340,150,400,50);
+  ctx.fillStyle="#fff";
+  ctx.font="bold 28px Arial";
+  ctx.textAlign="center";
+  ctx.textBaseline="middle";
+  ctx.fillText("Per Hour Question",540,175);
 
-// Helper: rounded rect path
-function roundRectPath(ctx,x,y,w,h,r){
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
-}
+  // Question
+  ctx.fillStyle="#000";
+  wrapTextAutoSize(ctx,q.question,80,240,920,200,44,18,1.2,"left");
 
-// Draw card main
-function drawCard(obj){
-  // Clear
-  ctx.clearRect(0,0,W,H);
-
-  // background white with a thin red border
-  ctx.save();
-  // outer background
-  ctx.fillStyle = BRAND_WHITE;
-  ctx.fillRect(0,0,W,H);
-
-  // thin red frame
-  ctx.lineWidth = 12;
-  ctx.strokeStyle = BRAND_RED;
-  roundRectPath(ctx, 8, 8, W-16, H-16, 28);
-  ctx.stroke();
-
-  // header area
-  const headerH = Math.floor(H * 0.20);
-  // black header bar
-  ctx.fillStyle = BRAND_BLACK;
-  roundRectPath(ctx, 8, 8, W-16, headerH, 22);
-  ctx.fill();
-
-  // center logo
-  const logoSize = Math.floor(headerH * 0.62);
-  const logoCX = W/2;
-  const logoCY = 8 + headerH/2 - 8;
-  drawLogo(ctx, logoCX, logoCY - 12, logoSize);
-
-  // "Per Hour Question" label under logo inside header - with random gradient
-  const labelW = 420;
-  const labelH = 54;
-  const labelX = (W - labelW) / 2;
-  const labelY = 8 + headerH - labelH - 16;
-  ctx.save();
-  // create rounded rect background using gradient
-  ctx.beginPath();
-  roundRectPath(ctx, labelX, labelY, labelW, labelH, 12);
-  ctx.clip();
-  ctx.fillStyle = randomGradient(ctx, labelX, labelY, labelW, labelH);
-  ctx.fillRect(labelX, labelY, labelW, labelH);
-  ctx.restore();
-  // label text
-  ctx.fillStyle = BRAND_WHITE;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.font = `700 28px Inter, Arial`;
-  ctx.fillText("Per Hour Question", W/2, labelY + labelH/2 - 2);
-
-  // main question area
-  const qAreaX = padding;
-  const qAreaY = 8 + headerH + 28;
-  const qAreaW = W - padding*2;
-  const qAreaH = H * 0.46; // space for question
-  // draw question card area (light tint)
-  ctx.fillStyle = '#fff';
-  roundRectPath(ctx, qAreaX-12, qAreaY-12, qAreaW+24, qAreaH+24, 18);
-  // subtle inner border
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = "#eee";
-  ctx.stroke();
-  // question text
-  ctx.fillStyle = BRAND_BLACK;
-  ctx.textAlign = 'left';
-  drawWrappedText(ctx, obj.question, qAreaX, qAreaY, qAreaW, qAreaH, "700", 44, 1.06, "left");
-
-  // options area
-  const optAreaY = qAreaY + qAreaH + 18;
-  const optAreaX = qAreaX;
-  const optAreaW = qAreaW;
-  const optGap = 14;
-  const optBoxH = Math.floor((H - optAreaY - padding - 48 - optGap*3) / 4);
-  const circleR = 28;
-
-  const labels = ['A','B','C','D','E','F']; // in case >4
-
-  for(let i=0;i<obj.options.length;i++){
-    const ox = optAreaX;
-    const oy = optAreaY + i*(optBoxH + optGap);
-    // option background box
-    roundRectPath(ctx, ox, oy, optAreaW, optBoxH, 14);
-    ctx.fillStyle = "#fafafa";
-    ctx.fill();
-    // marker circle
-    const circX = ox + 40;
-    const circY = oy + optBoxH/2;
+  // Options
+  const labels=["A","B","C","D"];
+  let oy=480;
+  for(let i=0;i<q.options.length;i++){
+    ctx.fillStyle="#c8102e";
     ctx.beginPath();
-    ctx.arc(circX, circY, circleR, 0, Math.PI*2);
-    ctx.fillStyle = BRAND_RED;
+    ctx.arc(100,oy+30,30,0,Math.PI*2);
     ctx.fill();
-    // label
-    ctx.fillStyle = BRAND_WHITE;
-    ctx.font = `700 20px Inter, Arial`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(labels[i] || (i+1), circX, circY);
+    ctx.fillStyle="#fff";
+    ctx.font="bold 26px Arial";
+    ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.fillText(labels[i],100,oy+30);
 
-    // option text - allow wrap + auto-scale within remaining width
-    const textX = circX + circleR + 20;
-    const textW = optAreaW - (textX - ox) - 28;
-    const textY = oy + 18;
-    const textH = optBoxH - 36;
-    ctx.fillStyle = BRAND_BLACK;
-    drawWrappedText(ctx, obj.options[i], textX, textY, textW, textH, "600", 28, 1.06, "left");
+    ctx.fillStyle="#000";
+    wrapTextAutoSize(ctx,q.options[i],160,oy,880,60,28,14,1.1,"left");
+    oy+=100;
   }
 
-  // footer area
-  const footerH = 58;
-  const footerY = H - footerH - 24;
-  // small divider line
-  ctx.strokeStyle = "#eee";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(padding, footerY);
-  ctx.lineTo(W - padding, footerY);
-  ctx.stroke();
-
-  // footer text: date | website | handles
-  ctx.fillStyle = '#666';
-  ctx.textAlign = 'left';
-  ctx.font = `500 18px Inter, Arial`;
-  const dateStr = formatDate();
-  ctx.fillText(dateStr, padding, footerY + 14);
-
-  // website centered
-  ctx.textAlign = 'center';
-  ctx.fillText(META.website, W/2, footerY + 14);
-
-  // social handles right aligned
-  ctx.textAlign = 'right';
-  const soc = `${META.facebook}  •  ${META.instagram}`;
-  ctx.fillText(soc, W - padding, footerY + 14);
-
-  ctx.restore();
+  // Footer
+  ctx.strokeStyle="#ccc"; ctx.beginPath(); ctx.moveTo(80,980); ctx.lineTo(1000,980); ctx.stroke();
+  ctx.fillStyle="#666"; ctx.font="16px Arial"; ctx.textAlign="left";
+  ctx.fillText(formatDate(),80,1010);
+  ctx.textAlign="center"; ctx.fillText(META.website,540,1010);
+  ctx.textAlign="right"; ctx.fillText(`${META.facebook} | ${META.instagram}`,1000,1010);
 }
 
-// pick a random question and draw
-function generateRandom(){
-  if(!questions || questions.length === 0){
-    alert("No questions found. Add questions to the `questions` array in the script.");
-    return;
-  }
-  const idx = Math.floor(Math.random() * questions.length);
-  currentQuestion = JSON.parse(JSON.stringify(questions[idx])); // clone to avoid side effects
-  // ensure options length is at most 6 for layout; if fewer it's fine
-  drawCard(currentQuestion);
+function randomQuestion(){
+  currentQ=rand(questions);
+  drawCard(currentQ);
 }
-
-// Download PNG
 function downloadPNG(){
-  if(!currentQuestion){
-    generateRandom();
-  }
-  // Create a high-quality PNG by exporting canvas current content.
-  // Canvas is already 1080x1080; use toDataURL directly
-  const dataURL = canvas.toDataURL('image/png');
-  const link = document.createElement('a');
-  link.href = dataURL;
-  link.download = `${Date.now()}.png`;
-  document.body.appendChild(link);
+  if(!currentQ) randomQuestion();
+  const link=document.createElement("a");
+  link.download=`${Date.now()}.png`;
+  link.href=canvas.toDataURL("image/png");
   link.click();
-  link.remove();
 }
 
-// Ensure the canvas draws crisp on high-DPI displays (we use a fixed internal size 1080)
-function makeCanvasSharp(){
-  // canvas width/height already set to 1080 each. Other scaling handled by CSS.
-  // Optionally adjust if you want higher DPI exports.
-  const dpr = Math.max(1, window.devicePixelRatio || 1);
-  // For production Instagram square, 1080 is fine. We keep internal resolution at 1080 to ensure crisp.
-  // No changes needed here.
-}
+document.getElementById("randomBtn").onclick=randomQuestion;
+document.getElementById("downloadBtn").onclick=downloadPNG;
 
-// Wire up buttons
-document.getElementById('randomBtn').addEventListener('click', ()=>{
-  generateRandom();
-});
-document.getElementById('downloadBtn').addEventListener('click', ()=>{
-  downloadPNG();
-});
-
-// initialize
-(function init(){
-  makeCanvasSharp();
-  generateRandom();
-})();
+randomQuestion();
 </script>
 </body>
 </html>
