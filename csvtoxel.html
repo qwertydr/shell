@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Email to Excel Converter</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #f4f6f8;
+        padding: 20px;
+    }
+    .container {
+        max-width: 700px;
+        margin: auto;
+        background: #ffffff;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    h2 {
+        text-align: center;
+        margin-bottom: 15px;
+    }
+    textarea {
+        width: 100%;
+        min-height: 140px;
+        padding: 10px;
+        margin-bottom: 15px;
+        font-size: 14px;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+        resize: vertical;
+    }
+    button {
+        padding: 10px 16px;
+        font-size: 14px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        margin-right: 10px;
+    }
+    .convert {
+        background: #007bff;
+        color: #fff;
+    }
+    .copy {
+        background: #28a745;
+        color: #fff;
+    }
+    .note {
+        margin-top: 10px;
+        font-size: 13px;
+        color: #555;
+    }
+</style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Email → Excel Converter</h2>
+
+    <label><strong>Paste comma-separated emails:</strong></label>
+    <textarea id="inputEmails" placeholder="email1@gmail.com, email2@gmail.com, email3@gmail.com"></textarea>
+
+    <button class="convert" onclick="convertEmails()">Convert</button>
+    <button class="copy" onclick="copyOutput()">Copy for Excel</button>
+
+    <label style="margin-top:15px; display:block;"><strong>Excel-ready output (one per line):</strong></label>
+    <textarea id="outputEmails" readonly></textarea>
+
+    <div class="note">
+        📌 Tip: After copying, paste directly into Excel — each email will appear in a separate row.
+    </div>
+</div>
+
+<script>
+function convertEmails() {
+    const input = document.getElementById("inputEmails").value;
+
+    const emails = input
+        .split(",")
+        .map(email => email.trim())
+        .filter(email => email !== "");
+
+    document.getElementById("outputEmails").value = emails.join("\n");
+}
+
+function copyOutput() {
+    const output = document.getElementById("outputEmails");
+    output.select();
+    output.setSelectionRange(0, 999999); // mobile support
+    document.execCommand("copy");
+    alert("Copied! Now paste into Excel.");
+}
+</script>
+
+</body>
+</html>
